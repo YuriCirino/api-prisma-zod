@@ -4,28 +4,28 @@ import { z, ZodError } from 'zod'
 export default async function appRoutes(app: FastifyInstance) {
 
     app.get('/', async () => 'Welcome')
-    
+
     app.get('/orders', async () => {
         let orders = await prisma.order.findMany()
         return orders
     })
-    
+
 
     // Customer Routes
     app.get('/customers', async () => {
         let customers = await prisma.customer.findMany()
         return customers
     })
-    app.get('/customer/:id',async (request,reply)=>{
-        const getCustomerParams = z.object({id:z.string()})
+    app.get('/customer/:id', async (request, reply) => {
+        const getCustomerParams = z.object({ id: z.string() })
 
         try {
-            const {id} = getCustomerParams.parse(request.params)
+            const { id } = getCustomerParams.parse(request.params)
             const customer = await prisma.customer.findUnique({
-                where:{id}
+                where: { id }
             })
-            if (customer==null) reply.code(204)
-            else reply.code(200).send({sucess:true,customer})
+            if (customer == null) reply.code(204)
+            else reply.code(200).send({ sucess: true, customer })
 
         } catch (error) {
             if (error instanceof z.ZodError) {
@@ -37,24 +37,24 @@ export default async function appRoutes(app: FastifyInstance) {
             } else {
                 return reply.code(400).send({ sucess: false, error })
             }
-            
+
         }
     })
     app.post('/customer', async (request, reply) => {
         const createCustomerBody = z.object({
             name: z.string({ required_error: "Nome do cliente é obrigatório", }).min(5, "O nome tem que ter no mínimo 5 caracteres").max(100, "A descrição tem que ter no máximo 100 caracteres"),
-            cpf: z.string({ required_error: "CPF é obrigatório", }).length(11,"CPF tem que ter 11 numeros"),
-            
+            cpf: z.string({ required_error: "CPF é obrigatório", }).length(11, "CPF tem que ter 11 numeros"),
+
         })
         try {
             const customer = createCustomerBody.parse(request.body)
-            let customerAlreadyExists = await prisma.customer.count(
+            let customerAlreadyExists = await prisma.customer.findUnique(
                 {
-                    where:{cpf:customer.cpf}
+                    where: { cpf: customer.cpf }
                 }
             )
-            if(customerAlreadyExists>0) return reply.code(409).send({sucess:false,message:"Este usuário já existe"})
-            else{
+            if (customerAlreadyExists == null) return reply.code(409).send({ sucess: false, message: "Este Cliente já existe" })
+            else {
 
                 const customerCreated = await prisma.customer.create({ data: customer })
                 reply.code(201).send({ sucess: true, message: "Cliente criado com sucesso", customer: customerCreated })
@@ -77,7 +77,41 @@ export default async function appRoutes(app: FastifyInstance) {
         }
 
     })
-    
+    app.delete('/customer/:id', async (request, reply) => {
+        const deleteCustomerParams = z.object({
+            id: z.string({ invalid_type_error: "ID precisar ser uma texto" })
+                .min(10, "ID precisar ter no mínimo 10 caracteres")
+        })
+        try {
+            const { id } = deleteCustomerParams.parse(request.params)
+            const customer = await prisma.customer.findUnique({
+                where: { id }
+            })
+            if (customer == null) return reply.code(409).send({ sucess: false, message: "Esse cliente não existe" })
+            else {
+
+                await prisma.product.delete({ where: { id: id } })
+                return reply.code(200).send({ sucess: true, message: "Produto excluído com sucesso" })
+            }
+
+
+        } catch (error) {
+            if (error instanceof z.ZodError) {
+                return reply.code(400).send({
+                    sucess: false,
+                    message: error.issues.map(issue => issue.message)
+                }
+                )
+            } else {
+                return reply.code(400).send({ sucess: false, error })
+            }
+
+
+        }
+
+    })
+
+
 
 
 
@@ -86,18 +120,18 @@ export default async function appRoutes(app: FastifyInstance) {
         let products = await prisma.product.findMany()
         return products
     })
-    app.get('/product/:id',async (request,reply)=>{
+    app.get('/product/:id', async (request, reply) => {
         const getProductParams = z.object({
             id: z.string({ invalid_type_error: "ID precisar ser uma texto" })
                 .min(10, "ID precisar ter no mínimo 10 caracteres")
         })
         try {
-            const {id} = getProductParams.parse(request.params)
+            const { id } = getProductParams.parse(request.params)
             const product = await prisma.product.findUnique({
-                where:{id}
+                where: { id }
             })
-            if (product==null) reply.code(204)
-            else reply.code(200).send({sucess:true,product})
+            if (product == null) reply.code(409).send({sucess:false,message:"Este produto não existe"})
+            else reply.code(200).send({ sucess: true, product })
         } catch (error) {
             if (error instanceof z.ZodError) {
                 return reply.code(400).send({
@@ -149,9 +183,15 @@ export default async function appRoutes(app: FastifyInstance) {
                 .min(10, "ID precisar ter no mínimo 10 caracteres")
         })
         try {
+
             const { id } = deleteProductParams.parse(request.params)
-            await prisma.product.delete({ where: { id: id } })
-            return reply.code(200).send({ sucess: true, message: "Produto excluído com sucesso" })
+            const product = await prisma.product.findUnique({where:{id:id}})
+            if (product == null) return reply.code(209).send({sucess:false,error:"Esse produto não existe"})
+            else{
+                await prisma.product.delete({ where: { id: id } })
+                return reply.code(200).send({ sucess: true, message: "Produto excluído com sucesso" })
+            }
+
 
         } catch (error) {
             if (error instanceof z.ZodError) {
@@ -176,15 +216,21 @@ export default async function appRoutes(app: FastifyInstance) {
             price: z.number({ required_error: "Preço é obrigatório", invalid_type_error: "O Preço tem que ser um numero" }).optional(),
             order: z.string().optional()
         })
-        const updateProductParams = z.object({id:z.string({ invalid_type_error: "ID precisar ser uma texto" })
-        .min(10, "ID precisar ter no mínimo 10 caracteres")})
-        
+        const updateProductParams = z.object({
+            id: z.string({ invalid_type_error: "ID precisar ser uma texto" })
+                .min(10, "ID precisar ter no mínimo 10 caracteres")
+        })
+
         try {
 
-            const {id} = updateProductParams.parse(request.params)
+            const { id } = updateProductParams.parse(request.params)
             const product = updateProductBody.parse(request.body)
-            const productUpdated = await prisma.product.update({ where: { id: id }, data: product })
-            reply.code(201).send({ sucess: true, message: "Produto alterado com sucesso", product: productUpdated })
+            const productExists = prisma.product.findUnique({where:{id:id}})
+            if(productExists==null) return reply.code(209).send({sucess:false,message:"O produto não existe"})
+            else{
+                const productUpdated = await prisma.product.update({ where: { id: id }, data: product })
+                reply.code(200).send({ sucess: true, message: "Produto alterado com sucesso", product: productUpdated })
+            }
 
         } catch (error) {
             if (error instanceof z.ZodError) {
