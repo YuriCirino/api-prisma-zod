@@ -46,7 +46,7 @@ export default async function appRoutes(app: FastifyInstance) {
     app.post('/customer', async (request, reply) => {
         const createCustomerBody = z.object({
             name: z.string({ required_error: "Nome do cliente é obrigatório", }).min(5, "O nome tem que ter no mínimo 5 caracteres").max(100, "A descrição tem que ter no máximo 100 caracteres"),
-            cpf: z.string({ required_error: "CPF é obrigatório", }).length(11, "CPF tem que ter 11 numeros"),
+            cpf: z.string({ required_error: "CPF é obrigatório", }).length(11, "CPF tem que ter 11 númeross"),
 
         })
         try {
@@ -90,9 +90,10 @@ export default async function appRoutes(app: FastifyInstance) {
             const customer = await prisma.customer.findUnique({
                 where: { id }
             })
+            console.log(customer)
             if (customer == null) return reply.code(409).send({ sucess: false, message: "Esse cliente não existe" })
             else {
-                await prisma.product.delete({ where: { id: id } })
+                await prisma.customer.delete({ where: { id: id } })
                 return reply.code(200).send({ sucess: true, message: "Produto excluído com sucesso" })
             }
 
@@ -115,7 +116,7 @@ export default async function appRoutes(app: FastifyInstance) {
     app.put('/customer/:id', async (request, reply) => {
         const updateCustomerBody = z.object({
             name: z.string({ required_error: "Nome é obrigatório", }).min(3, "A descrição tem que ter no mínimo 3 caracteres").max(100, "A descrição tem que ter no máximo 100 caracteres").optional(),
-            cpf: z.string({ required_error: "CPF é obrigatório", }).length(11, "CPF tem que ter 11 numeros"),
+            cpf: z.string({ required_error: "CPF é obrigatório", }).length(11, "CPF tem que ter 11 númeross").optional(),
 
         })
         const updateCustomerParams = z.object({
@@ -128,6 +129,11 @@ export default async function appRoutes(app: FastifyInstance) {
             const { id } = updateCustomerParams.parse(request.params)
             const customer = updateCustomerBody.parse(request.body)
             const customerExists = prisma.customer.findUnique({ where: { id: id } })
+            if(customer.cpf!==undefined) {
+                const cpfAlreadyExists = prisma.customer.findUnique({where:{cpf:customer.cpf}})
+                if(cpfAlreadyExists!==null) return reply.code(409).send({sucess:false,message:"Este cpf já está cadastrado"})
+            }
+           
             if (customerExists == null) return reply.code(409).send({ sucess: false, message: "O cliente não existe" })
             else {
                 const customerUpdated = await prisma.customer.update({ where: { id: id }, data: customer })
@@ -185,7 +191,7 @@ export default async function appRoutes(app: FastifyInstance) {
         const createProductBody = z.object({
             name: z.string({ required_error: "Nome é obrigatório", }).min(3, "A descrição tem que ter no mínimo 3 caracteres").max(100, "A descrição tem que ter no máximo 100 caracteres"),
             description: z.string({ required_error: "Descrição é obrigatório", }).min(4, "A descrição tem que ter no mínimo 4 caracteres").max(400, "A descrição tem que ter no máximo 400 caracteres"),
-            price: z.number({ required_error: "Preço é obrigatório", invalid_type_error: "O Preço tem que ser um numero" }),
+            price: z.number({ required_error: "Preço é obrigatório", invalid_type_error: "O Preço tem que ser um números" }),
             order: z.string().optional()
         })
         try {
@@ -245,7 +251,7 @@ export default async function appRoutes(app: FastifyInstance) {
         const updateProductBody = z.object({
             name: z.string({ required_error: "Nome é obrigatório", }).min(3, "A descrição tem que ter no mínimo 3 caracteres").max(100, "A descrição tem que ter no máximo 100 caracteres").optional(),
             description: z.string({ required_error: "Descrição é obrigatório", }).min(4, "A descrição tem que ter no mínimo 4 caracteres").max(400, "A descrição tem que ter no máximo 400 caracteres").optional(),
-            price: z.number({ required_error: "Preço é obrigatório", invalid_type_error: "O Preço tem que ser um numero" }).optional(),
+            price: z.number({ required_error: "Preço é obrigatório", invalid_type_error: "O Preço tem que ser um números" }).optional(),
             order: z.string().optional()
         })
         const updateProductParams = z.object({
@@ -279,9 +285,6 @@ export default async function appRoutes(app: FastifyInstance) {
         }
 
     })
-
-
-
 
 
 }
