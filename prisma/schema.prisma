@@ -4,6 +4,10 @@
 generator client {
   provider = "prisma-client-js"
 }
+generator erd {
+  provider = "prisma-erd-generator"
+  includeRelationFromFields = true
+}
 
 datasource db {
   provider = "sqlite"
@@ -25,9 +29,11 @@ model Order{
   created_at DateTime @default(now())
   value Decimal
   customer Customer @relation(fields: [customer_id],references: [id])
+  
   customer_id String
   
-  products_id Product[]
+  products ProductsOnOrder[]
+
     
   @@map("orders")
 }
@@ -36,8 +42,18 @@ model Product{
   name String 
   description String
   price Decimal
-  orders Order[]
+  
+  orders ProductsOnOrder[]
 
   @@map("products")
+}
+model ProductsOnOrder{
+  product Product @relation(fields: [product_id],references: [id])
+  product_id String
+  amount_product_to_order Int @default(1)
+
+  order Order @relation(fields: [order_id],references: [id])
+  order_id String
+  @@id([product_id,order_id])
 }
 
