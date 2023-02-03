@@ -1,87 +1,118 @@
 
 import { prisma } from "../src/lib/prisma"
 const dataIDs: { customers: Array<string>, products: Array<string> } = { customers: [], products: [] }
+
+
 async function main() {
+    await prisma.$transaction(async (tx) => {
 
-    console.log('------------Creating customers------------')
-    let count = await prisma.customer.count({
-        where: {
-            name: "John Due"
-        }
-    })
+        console.log('--Clearing all data')
+        //Deleting all data
+        await prisma.productsOnOrder.deleteMany({})
+        await prisma.order.deleteMany({})
+        await prisma.customer.deleteMany({})
+        await prisma.product.deleteMany({})
 
-    if (count == 0) {
-        let user_1 = await prisma.customer.create({
+        //Creating customers
+        console.log('----Creating customers')
+        const customer_1 = await prisma.customer.create({
             data: {
                 name: "John Due",
                 cpf: "12332112332",
-
-
             }
         })
-        console.log(user_1.name)
-        dataIDs.customers.push(user_1.id)
-    }
-
-    count = await prisma.customer.count({
-        where: {
-            name: "Cage Fon"
-        }
-    })
-    if (count == 0) {
-        const user_2 = await prisma.customer.create({
+        const customer_2 = await prisma.customer.create({
             data: {
                 name: "Cage Fon",
                 cpf: "12442112442"
             }
         })
-        console.log(user_2.name)
-        dataIDs.customers.push(user_2.id)
-    }
-
-    count = await prisma.customer.count({
-        where: {
-            name: "Due Fon"
-        }
-    })
-    if (count == 0) {
-        const user_3 = await prisma.customer.create({
+        const customer_3 = await prisma.customer.create({
             data: {
                 name: "Due Fon",
                 cpf: "92342992442"
             }
         })
-        console.log(user_3.name)
-        dataIDs.customers.push(user_3.id)
-    }
 
-    console.log('------------Creating products------------')
+        //Creating products
+        console.log('------Creating products')
 
+        const product_1 = await prisma.product.create({
+            data: {
+                name: "Teclado RGB",
+                description: "Teclado mecânico com RGB",
+                price: 350
+            }
+        })
+        const product_2 = await prisma.product.create({
+            data: {
+                name: "Mouse RGB",
+                description: "Mouse de alto desempenho com RGB",
+                price: 300
+            }
+        })
+        const product_3 = await prisma.product.create({
+            data: {
+                name: "Monitor Gamer",
+                description: "Monitor de baixa latência (1ms) e alta taxa de atualização (144hz)",
+                price: 350
+            }
+        })
+        const product_4 = await prisma.product.create({
+            data: {
+                name: "Mesa para computador",
+                description: "Mesa grande e com altura regulável para comportar todo seu equipamento",
+                price: 350
+            }
+        })
 
-    let product = await prisma.product.create({
-        data:
-            { name: "Máquina Gamer", description: "Máquina gamer repleta de RGB", price: 3000 }
+        //Creating relations
+        const relationsToOrder_1 = [
+            {
+                product: product_1,
+                amount: 1
+            },
+            {
+                product: product_2,
+                amount: 2
+            },
+        ]
+        let price = 0
+
+        relationsToOrder_1.forEach(relation => {
+            price += relation.product.price.toNumber() * relation.amount
+        })
+        console.log('--------Creating order')
+        const order_1 = await prisma.order.create({
+            data: {
+                customer_id: customer_1.id,
+                value: price,
+
+            }
+        })
+        //Creating relations on table
+        console.log('----------Creating relations')
+        for await (const relation of relationsToOrder_1) {
+
+            await prisma.productsOnOrder.create({
+                data: {
+                    amount_product_to_order: relation.amount,
+                    order_id: order_1.id,
+                    product_id: relation.product.id
+
+                }
+            })
+        }
+
 
     })
-    console.log(product.name)
-    dataIDs.products.push(product.id)
 
-    product = await prisma.product.create({
-        data:
-            { name: "Mouse RGB", description: "Mouse gamer repleto de RGB, aumentando bastante o FPS", price: 3000 }
 
-    })
-    console.log(product.name)
-    dataIDs.products.push(product.id)
-    product = await prisma.product.create({
-        data:
-            { name: "Teclado RGB", description: "Teclado gamer repleto de RGB, garantindo maior reflexo do usuário e jogadas mais épicas", price: 3000 }
-
-    })
-    console.log(product.name)
-    dataIDs.products.push(product.id)
 
 }
+
+
+
 main()
     .then(async () => {
         await prisma.$disconnect()
