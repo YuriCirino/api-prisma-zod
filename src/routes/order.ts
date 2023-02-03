@@ -21,7 +21,7 @@ export default async function orderRoutes(app: FastifyInstance) {
         })
         try {
             const { id } = getOrderParams.parse(request.params)
-            const order = await prisma.order.findUnique({ where: { id: id } })
+            const order = await prisma.order.findUnique({ where: { id: id },include:{products:true} })
             if (order == null) reply.code(409).send({ sucess: false, message: "Esse pedido não existe" })
             else reply.code(200).send({ sucess: true, order })
 
